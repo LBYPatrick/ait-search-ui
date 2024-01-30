@@ -8,6 +8,7 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:go_router/go_router.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 class HomePage extends ConsumerStatefulWidget {
   final GoRouterState routerState;
@@ -51,8 +52,8 @@ class _HomePageState extends ConsumerState<HomePage> {
     isResultReady = false;
     setState(() => true);
 
-    final ret = await http
-        .get(Uri.http(await _backendAddr, "/search", {"keyword": queryString}));
+    final ret = await http.get(
+        Uri.https(await _backendAddr, "/search", {"keyword": queryString}));
 
     //debugPrint("Body: ${ret.body}");
 
@@ -62,12 +63,14 @@ class _HomePageState extends ConsumerState<HomePage> {
 
     //debugPrint("First element: ${jsonEncode(body["content"]["matches"][0])}");
 
-    final output = List<dynamic>.from(body["content"]["matches"])
-        .cast<Map<String, dynamic>>();
+    if ((body["content"]["matches"] as List<dynamic>).isEmpty) {
+      results = [];
+    } else {
+      final output = List<dynamic>.from(body["content"]["matches"])
+          .cast<Map<String, dynamic>>();
 
-    debugPrint("First element: ${output[0].runtimeType}");
-
-    results = output;
+      results = output;
+    }
 
     isResultReady = true;
     setState(() => true);
@@ -79,7 +82,6 @@ class _HomePageState extends ConsumerState<HomePage> {
         autoFocus: true,
         controller: _controller,
         onChanged: (newValue) {
-          debugPrint("New value: $newValue");
           //fireRequest();
           setState(() => true);
         },
@@ -114,6 +116,29 @@ class _HomePageState extends ConsumerState<HomePage> {
         leading: const Icon(Icons.search_rounded),
         elevation: const MaterialStatePropertyAll(0),
       ));
+
+  static List<Widget> gappedWidgets(List<Widget?> widgets,
+      {double gapSize = 4}) {
+    //Filter out null widgets (Intentionally left out)
+    widgets =
+        widgets.where((element) => element != null).toList(growable: false);
+
+    List<Widget> newList = [];
+
+    bool isFirst = true;
+
+    for (Widget? w in widgets) {
+      if (isFirst) {
+        isFirst = false;
+      } else {
+        newList.add(SizedBox.square(dimension: gapSize));
+      }
+
+      newList.add(w!);
+    }
+
+    return newList;
+  }
 
   Widget get _searchBtn => Hero(
       tag: "search_button",
@@ -162,34 +187,55 @@ class _HomePageState extends ConsumerState<HomePage> {
     return ret;
   }
 
-  Widget get _idlePage => Align(
-      alignment: Alignment.center,
-      child: Column(crossAxisAlignment: CrossAxisAlignment.center, children: [
-        const Spacer(),
-        Text("AIT SearchSys",
-            textAlign: TextAlign.center,
-            style: Theme.of(context).textTheme.displayLarge?.copyWith(
-                fontWeight: FontWeight.bold,
-                color: Theme.of(context).colorScheme.primary)),
-        Padding(
-          padding: const EdgeInsets.symmetric(vertical: 10),
-          child: Text(
-            "Find everything you need for AIT!",
-            style: Theme.of(context).textTheme.bodyLarge,
-          ),
-        ),
+  Widget get _idlePage => Column(
+          mainAxisSize: MainAxisSize.max,
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            Row(
+                children: gappedWidgets([
+              FilledButton(
+                  // style: _btnStyle,
+                  onPressed: () => launchUrl(Uri.parse(
+                      "https://cs.nyu.edu/courses/spring24/CSCI-UA.0467-001/_site/index.html")),
+                  child: const Text("AIT Home")),
+              TextButton(
+                  //style: _btnStyle,
+                  onPressed: () => launchUrl(Uri.parse(
+                      "https://edstem.org/us/courses/54314/discussion/")),
+                  child: const Text("Edstem")),
+              const Spacer(),
+              OutlinedButton(
+                  //style: _btnStyle,
+                  onPressed: () => launchUrl(
+                      Uri.parse("https://forms.gle/D5kgR5i5DvtyZ5Lv9")),
+                  child: const Text("Homework Support")),
+            ])),
 
-        // TextField(decoration: InputDecoration(
-        //     border: St(),
+            const Spacer(),
+            Text("AIT SearchSys",
+                textAlign: TextAlign.center,
+                style: Theme.of(context).textTheme.displayLarge?.copyWith(
+                    fontWeight: FontWeight.bold,
+                    color: Theme.of(context).colorScheme.primary)),
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 10),
+              child: Text(
+                "Find everything you need for AIT!",
+                style: Theme.of(context).textTheme.bodyLarge,
+              ),
+            ),
 
-        _searchBar,
+            // TextField(decoration: InputDecoration(
+            //     border: St(),
 
-        Padding(
-            padding: const EdgeInsets.symmetric(vertical: 15),
-            child: _searchBtn),
+            _searchBar,
 
-        const Spacer(),
-      ]));
+            Padding(
+                padding: const EdgeInsets.symmetric(vertical: 15),
+                child: _searchBtn),
+
+            const Spacer(),
+          ]);
 
   Widget get _busyPage =>
       CustomScrollView(physics: BouncingScrollPhysics(), slivers: [
@@ -261,7 +307,7 @@ class _HomePageState extends ConsumerState<HomePage> {
         SliverToBoxAdapter(
             child: isResultReady
                 ? const SizedBox.square(dimension: 0)
-                : Row(children: [
+                : const Row(children: [
                     const Spacer(),
                     Padding(
                         padding: const EdgeInsets.symmetric(vertical: 10),
@@ -269,7 +315,25 @@ class _HomePageState extends ConsumerState<HomePage> {
                             dimension: 64,
                             child: const CircularProgressIndicator())),
                     const Spacer()
-                  ]))
+                  ])),
+
+        // In case we cannot find anything, show an error message of sorts
+        SliverToBoxAdapter(
+            child: (isResultReady && results.isEmpty)
+                ? Column(
+                    crossAxisAlignment: CrossAxisAlignment.center,
+                    children: gappedWidgets([
+                      Icon(Icons.warning_rounded,
+                          size: 128,
+                          color: Theme.of(context).colorScheme.onSurface),
+                      Text(
+                        textAlign: TextAlign.center,
+                        "Could not find any result. \nPlease try another keyword :(",
+                        style: Theme.of(context).textTheme.bodyMedium,
+                      )
+                    ]),
+                  )
+                : const SizedBox.square(dimension: 0))
       ]);
 
   @override
@@ -283,9 +347,9 @@ class _HomePageState extends ConsumerState<HomePage> {
           ),
         ),
         BackdropFilter(
-            filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+            filter: ImageFilter.blur(sigmaX: 0, sigmaY: 0),
             child: Container(
-                color: Theme.of(context).colorScheme.surface.withOpacity(0.7))),
+                color: Theme.of(context).colorScheme.surface.withOpacity(0.9))),
         SafeArea(
             child: Padding(
                 padding:
