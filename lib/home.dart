@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:ui';
 
+import 'package:ait_search_ui/global/providers.dart';
 import 'package:ait_search_ui/result_tile.dart';
 import 'package:ait_search_ui/util/system_util.dart';
 import 'package:cached_network_image/cached_network_image.dart';
@@ -29,6 +30,18 @@ class _HomePageState extends ConsumerState<HomePage> {
   bool submitted = false;
   bool isResultReady = false;
   String? backendAddr;
+
+  List<Color> themeColors = [
+    Colors.deepPurple,
+    Colors.red,
+    Colors.orange,
+    Colors.yellow,
+    Colors.green,
+    Colors.cyan,
+    Colors.blue
+  ];
+
+  int colorIndex = 0;
 
   Map<String, dynamic> parse(Map<String, dynamic> input) {
     return input;
@@ -187,29 +200,48 @@ class _HomePageState extends ConsumerState<HomePage> {
     return ret;
   }
 
+  Widget get _topActionBar => Row(
+          children: gappedWidgets([
+        FilledButton(
+            // style: _btnStyle,
+            onPressed: () => launchUrl(Uri.parse(
+                "https://cs.nyu.edu/courses/spring24/CSCI-UA.0467-001/_site/index.html")),
+            child: const Text("AIT Home")),
+        TextButton(
+            //style: _btnStyle,
+            onPressed: () => launchUrl(
+                Uri.parse("https://edstem.org/us/courses/54314/discussion/")),
+            child: const Text("Edstem")),
+        const Spacer(),
+
+        //Button to change page color!
+
+        SizedBox.square(
+            dimension: 30,
+            child: IconButton(
+                style: IconButton.styleFrom(
+                    foregroundColor: Theme.of(context).colorScheme.onPrimary,
+                    backgroundColor: Theme.of(context).colorScheme.primary,
+                    iconSize: 15),
+                onPressed: () {
+                  colorIndex = (colorIndex + 1) % themeColors.length;
+                  Notifiers.themeColor.update(themeColors[colorIndex]);
+                },
+                icon: const Icon(
+                  Icons.palette_outlined,
+                ))),
+        OutlinedButton(
+            //style: _btnStyle,
+            onPressed: () =>
+                launchUrl(Uri.parse("https://forms.gle/D5kgR5i5DvtyZ5Lv9")),
+            child: const Text("Homework Support")),
+      ]));
+
   Widget get _idlePage => Column(
           mainAxisSize: MainAxisSize.max,
           crossAxisAlignment: CrossAxisAlignment.center,
           children: [
-            Row(
-                children: gappedWidgets([
-              FilledButton(
-                  // style: _btnStyle,
-                  onPressed: () => launchUrl(Uri.parse(
-                      "https://cs.nyu.edu/courses/spring24/CSCI-UA.0467-001/_site/index.html")),
-                  child: const Text("AIT Home")),
-              TextButton(
-                  //style: _btnStyle,
-                  onPressed: () => launchUrl(Uri.parse(
-                      "https://edstem.org/us/courses/54314/discussion/")),
-                  child: const Text("Edstem")),
-              const Spacer(),
-              OutlinedButton(
-                  //style: _btnStyle,
-                  onPressed: () => launchUrl(
-                      Uri.parse("https://forms.gle/D5kgR5i5DvtyZ5Lv9")),
-                  child: const Text("Homework Support")),
-            ])),
+            _topActionBar,
 
             const Spacer(),
             Text("AIT SearchSys",
